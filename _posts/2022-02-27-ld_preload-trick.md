@@ -1,9 +1,9 @@
 ---
-title: Pitfalls encounted in the LD_PRELOAD trick
+title: Pitfalls encountered in the LD_PRELOAD trick
 date: 2022-02-27
 tags: [LD\_PRELOAD, CUDA intercept, segmentation fault]
 excerpt: |
-  A few pitfalls encounted in applying the LD_PRELOAD trick to CUDA intercept.
+  A few pitfalls encountered in applying the LD_PRELOAD trick to CUDA intercept.
 ---
 
 ## Motivation
@@ -66,8 +66,8 @@ the hooking mechanism (this includes the CUDA runtime). Its tricky though, since
 real dlsym with ours, we can't dlsym() the real dlsym. To get around that, call the 'private'
 libc interface called \_\_libc\_dlsym to get the real dlsym.
 
-Following the Nvidia example, dlsym is intercepted in the same [way]
-(https://github.com/CentaurusInfra/alnair/blob/ec63f740528dd60b0f703944a547669134f1608f/intercept-lib/src/cuda_interpose.cc#L144).
+Following the Nvidia example, dlsym is intercepted in the same 
+[way](https://github.com/CentaurusInfra/alnair/blob/ec63f740528dd60b0f703944a547669134f1608f/intercept-lib/src/cuda_interpose.cc#L144).
 
 
 ## Pitfall 2: segmentation fault
@@ -186,7 +186,10 @@ readelf -Ws /lib/x86_64-linux-gnu/libcuda.so
 
 Why would this happen?
 
-It's probably related to how the dynamic linker ld-linux.so works. For a symbol like "cuInit" to be looked up successfully, the corresponding info in the libcuda.so must be already loaded somewhere in the memory. We can see this was indeed the case at event 3. However, it looks that this was not the case at event 5. My guess is that ld-linux.so already loaded the info from libcuda.so before event 1, but later removed the info from the memory, perhaps for efficiency reasons. And after that, at event 5, "cuInit" could no longer be found.
+It's probably related to how the dynamic linker ld-linux.so works. For a symbol like "cuInit" to be looked up successfully, the corresponding 
+info in the libcuda.so must be already loaded somewhere in the memory. We can see this was indeed the case at event 3. However, it looks that 
+this was not the case at event 5. My guess is that ld-linux.so already loaded the info from libcuda.so before event 1, but later removed the 
+info from the memory, perhaps for efficiency reasons. And after that, at event 5, "cuInit" could no longer be found.
 
 Based on my guess, I tried to add a static variable "real_cuInit" to record the real "cuInit" at event 1. And it works!
 ```c
@@ -237,7 +240,7 @@ LD_PRELOAD=./libfoo.so ./a.out
 Done
 
 Yay, I solved it! And this solution was also applied in our 
-[code](https://github.com/CentaurusInfra/alnair/blob/ec63f740528dd60b0f703944a547669134f1608f/intercept-lib/src/cuda_interpose.cc#L134) 
+[code](https://github.com/CentaurusInfra/alnair/blob/ec63f740528dd60b0f703944a547669134f1608f/intercept-lib/src/cuda_interpose.cc#L134).
 
 ## Pitfall 3: the program hangs...
 Using the above libfoo.so, I encounted another problem when running this program:
@@ -341,3 +344,8 @@ LD_PRELOAD=./libfoo.so python test.py
 ```
 >cuInit hooked<br>
 cuInit hooked
+
+## Summary
+The LD\_PRELOAD trick is not as easy as it seems. Hard to debug pitfalls were encounted in my attempt to interpose the CUDA driver 
+API. There might be more to come and we need to put the [code](https://github.com/CentaurusInfra/alnair/tree/main/intercept-lib) to
+comprehensive testing.
